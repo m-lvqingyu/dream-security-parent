@@ -1,0 +1,27 @@
+server:
+  port: 8761
+  servlet:
+    context-path: /register
+
+spring:
+  application:
+    # 定义服务名称
+    name: SECURITY-REGISTER-SERVER
+  security:
+    user:
+      # 访问Eureka服务的受保护资源所需的用户名和密码
+      name: admin
+      password: admin-eureka
+eureka:
+  instance:
+    # 指定了Eureka服务端的地址
+    hostname: localhost
+  client:
+    # 表示是否将服务注册到Eureka服务端，由于我们这里是单节点的Eureka服务端，所以这里指定false
+    register-with-eureka: false
+    # 表示是否从Eureka服务端获取服务信息，因为这里是单节点的Eureka服务端，并不需要从别的Eureka服务端同步服务信息，所以这里设置为false
+    fetch-registry: false
+    # 微服务更新实例信息的变化到Eureka服务端的间隔时间，单位为秒，这里指定为30秒
+    instance-info-replication-interval-seconds: 30
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@${eureka.instance.hostname}:${server.port}${server.servlet.context-path}/eureka/
