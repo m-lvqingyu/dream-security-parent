@@ -3,6 +3,7 @@ package com.dream.start.security.auth.config;
 import com.dream.start.security.auth.constant.AuthenticationConstant;
 import com.dream.start.security.auth.service.AuthUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -10,7 +11,6 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
@@ -20,15 +20,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  */
 @Order(2)
 @EnableWebSecurity
-public class AuthSecurityConfigure extends WebSecurityConfigurerAdapter {
+public class AuthWebSecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
+    @Qualifier("bCryptPasswordEncoder")
+    private PasswordEncoder passwordEncoder;
+    @Autowired
     private AuthUserDetailsService authUserDetailsService;
-    
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 
     /**
      * 主要配置身份认证来源，也就是用户及其角色
@@ -38,7 +36,7 @@ public class AuthSecurityConfigure extends WebSecurityConfigurerAdapter {
      */
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.userDetailsService(authUserDetailsService).passwordEncoder(passwordEncoder());
+        auth.userDetailsService(authUserDetailsService).passwordEncoder(passwordEncoder);
         super.configure(auth);
     }
 

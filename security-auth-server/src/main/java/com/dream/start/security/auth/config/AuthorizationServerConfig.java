@@ -2,10 +2,8 @@ package com.dream.start.security.auth.config;
 
 import com.dream.start.security.auth.service.AuthUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
@@ -13,9 +11,8 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.A
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
-import org.springframework.security.oauth2.provider.token.DefaultTokenServices;
 import org.springframework.security.oauth2.provider.token.TokenStore;
-import org.springframework.security.oauth2.provider.token.store.redis.RedisTokenStore;
+import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 
 /**
  * @author Lv.QingYu
@@ -23,23 +20,23 @@ import org.springframework.security.oauth2.provider.token.store.redis.RedisToken
  */
 @Configuration
 @EnableAuthorizationServer
-public class MyAuthorizationServerConfigure extends AuthorizationServerConfigurerAdapter {
+public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdapter {
 
     @Autowired
-    private AuthUserDetailsService authUserDetailsService;
+    @Qualifier("jwtTokenStore")
+    private TokenStore tokenStore;
+    @Autowired
+    @Qualifier("bCryptPasswordEncoder")
+    private PasswordEncoder passwordEncoder;
     @Autowired
     private AuthenticationManager authenticationManager;
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private AuthUserDetailsService authUserDetailsService;
     @Autowired
-    private RedisConnectionFactory redisConnectionFactory;
-
-    @Bean
-    public TokenStore tokenStore() {
-        return new RedisTokenStore(redisConnectionFactory);
-    }
+    private JwtAccessTokenConverter jwtAccessTokenConverter;
 
     /**
+     * 配置客户端详情: 内存方式
      * 客户端从认证服务器获取令牌的时候，必须使用client_id为Tencent，client_secret为123456的标识来获取；
      * 该client_id支持password模式获取令牌，并且可以通过refresh_token来获取新的令牌；
      * 在获取client_id为Tencent的令牌的时候，scope只能指定为all，否则将获取失败；
@@ -50,18 +47,28 @@ public class MyAuthorizationServerConfigure extends AuthorizationServerConfigure
     @Override
     public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
         clients.inMemory()
+                // 配置client_id
                 .withClient("Tencent")
+                // 配置client_secret
                 .secret(passwordEncoder.encode("123456"))
+                // 配置访问token的有效期。单位:秒。
+                // 比如：设置600秒，则当前时间十分钟以内，通过client_id= Tencent & client_secret 申请令牌是没有问题的，但是超过十分钟，就会申请不到令牌；
+                // 不过，当前时间十分钟以内已经申请的令牌，依然可以继续使用
+                .accessTokenValiditySeconds(60)
+                // 配置刷新token的有效期
+                .refreshTokenValiditySeconds(60)
+                // 配置grant_type，表示授权类型
                 .authorizedGrantTypes("password", "refresh_token")
+                // 配置申请的权限范围
                 .scopes("all");
     }
 
     @Override
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-        endpoints.tokenStore(tokenStore())
+        endpoints.tokenStore(tokenStore)
+                .accessTokenConverter(jwtAccessTokenConverter)
                 .authenticationManager(authenticationManager)
-                .userDetailsService(authUserDetailsService)
-                .tokenServices(defaultTokenServices());
+                .userDetailsService(authUserDetailsService);
     }
 
     /**
@@ -72,17 +79,4 @@ public class MyAuthorizationServerConfigure extends AuthorizationServerConfigure
         security.allowFormAuthenticationForClients();
     }
 
-    @Primary
-    @Bean
-    public DefaultTokenServices defaultTokenServices() {
-        DefaultTokenServices tokenServices = new DefaultTokenServices();
-        tokenServices.setTokenStore(tokenStore());
-        // setSupportRefreshToken设置为true表示开启刷新令牌的支持
-        tokenServices.setSupportRefreshToken(true);
-        // 令牌有效时间为60 * 60 * 24秒
-        tokenServices.setAccessTokenValiditySeconds(60 * 60 * 24);
-        // 刷新令牌有效时间为60 * 60 * 24 * 7秒
-        tokenServices.setRefreshTokenValiditySeconds(60 * 60 * 24 * 7);
-        return tokenServices;
-    }
 }
